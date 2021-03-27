@@ -1,49 +1,26 @@
-#returns character for a specific chunk
-get_character(){
-    arr=("$@")
-    #echo "${arr[@]}"
-
-    length=${#arr[@]}
-    if [[ $length > 1 ]]; then
-        x_len=${arr[length-1]}
-        y_len=$(($length/$x_len))
-        echo $x_len $y_len
-        
-    else
-        echo "An error occured. get_character did not recieve a valid array"
-    fi
-}
-
-#generates characer from avgerages of chunk
+#generates characer for chunk
 get_char(){
     avg_r=$1
     avg_b=$2
     avg_g=$3
 
-    if [[ -z $4 ]]; then
-        background="light"
-    else
-        background="dark"
-    fi
+    char_list=("@" "%" "#" "&" "=" "+" "-" ":" "," "." " ")
 
-    char_list=("@" "%" "#" "&" "=" "+" "-" ":" "," ".")
-
-    incr_size=${$((3*255/${#char_list}))%%.*}
+    incr_length=$((3*255/${#char_list[@]}))
     
     #choose characters solely based on total screen area they occupy
     #IDEA: try non-linear scaling for magnitude
-    magnitude=$avg_r+$avg_b+$avg_g
+    magnitude=$(($avg_r+$avg_b+$avg_g))
 
-    if [[ $background -eq "dark" ]]; then
+    if [[ $4 -eq 1 ]]; then
         # background is dark, so we emphasize higher magnitudes, or closer to light - (255,255,255)
-       dist=$((3*255-$magnitude))
+        dist=$(($magnitude))
     else
         # background is light, so we emphasize lower magnitudes, or closer to dark - (0,0,0)
-        dist=$(($magnitude))
+        dist=$((3*255-$magnitude))
     fi
-
-    index=${$((magnitude%incr_size))%%*.}
-    echo ${char_list[@]}
+    index=$((dist/incr_length))
+    echo ${char_list[index]}
 }
 
 #itterate through 
@@ -53,13 +30,30 @@ print_image(){
     image=$1
     x_dim=$2
     y_dim=$3
-    x_dim_print=$4
-    y_dim_print=$5
-    Arr=()
-    for (( i=0; i<$x_dim; i++ )); do
+    chunk_x=$4
+    chunk_y=$5
+    background=$6
+    
+    #calculate Chunk dimensions & overlap
+    # EX) 2x5 original -> 2x2; 5%2 = 1, meaning we have one "leftover" pixel.
+    # We add this extra pixel into another chunk
+
+    index=0
+    horz_offset=$x_dim%$chunk_x
+    vert_offset=$y_dim%$chunk_y
+    chunk_count=$((chunk_x*chunk_y))
+    echo $chunk_count
+    #goes through each chunk - indexes={i*} where i is the ith chunnk
+    for (( i=0; i<$chunk_count; i++ )); do
         for (( j=0; j<$y_dim; j++ )); do
             result=`magick convert $image -format "%[fx:int(255*p{$j,$i}.r)],%[fx:int(255*p{$j,$i}.g)],%[fx:int(255*p{$j,$i}.b)]" info:-`
-            Arr+=($result)
+            
+            #parse results for rgb values
+            first=${result%%,*}
+            #cut out 1st and 3rd elements
+            second=${result:$((${#first}+1)):${#result}}; second=${second%%,*}
+            third=${result##*,}
+            echo $first $second $third
         done
     done
 
@@ -68,13 +62,13 @@ print_image(){
     # We add this extra pixel into another chunk
 
     index=0
-    horz_offset=$x_dim%$x_dim_print
-    vert_offset=$y_dim%$y_dim_print
+    horz_offset=$x_dim%$chunk_x
+    vert_offset=$y_dim%$chunk_y
     chunk_arr=()
     
-    for (( x=0; x<$x_dim_print; x++ )); do
+    for (( x=0; x<$chunk_x; x++ )); do
         row_offset=$horz_offset
-        for (( y=0; y<$y_dim_print; y++ )); do
+        for (( y=0; y<$chunk_y; y++ )); do
             echo "yes"
             if [[ row_offset > 0 ]]; then
                 row_offset=$((offset-1))
@@ -102,9 +96,8 @@ y_dim_print=16
 #echo `var4=1`
 #arr=(1 2 3 4 5 89)
 #get_character "${arr[@]}" 3
-
-    char_list=("@" "%" "#" "&" "=" "+" "-" ":" "," ".")
-    lenth=$((255/${#char_list[@]}))
-    incr_size=${length%%.*}
-    echo $incr_size $len $length
-    echo $incr_size $len
+#char_list=("@" "%" "#" "&" "=" "+" "-" ":" "," ".")
+#incr_length=$((3*255/${#char_list[@]}))
+#echo $incr_length
+#get_char 0 0 0 1
+print_image images.png 10 10 1 1

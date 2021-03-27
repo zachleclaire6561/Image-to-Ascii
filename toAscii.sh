@@ -60,6 +60,30 @@ get_dimensions() {
     echo ${result% *}
 }
 
+#generates characer for chunk
+get_char(){
+    avg_r=$1
+    avg_b=$2
+    avg_g=$3
+
+    char_list=("@" "%" "#" "&" "=" "+" "-" ":" "," "." " ")
+    incr_length=$((3*255/${#char_list[@]}))
+    
+    #choose characters solely based on total screen area they occupy
+    #IDEA: try non-linear scaling for magnitude
+    magnitude=$(($avg_r+$avg_b+$avg_g))
+
+    if [[ $4 -eq 1 ]]; then
+        # background is dark, so we emphasize higher magnitudes, or closer to light - (255,255,255)
+        dist=$(($magnitude))
+    else
+        # background is light, so we emphasize lower magnitudes, or closer to dark - (0,0,0)
+        dist=$((3*255-$magnitude))
+    fi
+    index=$((dist/incr_length))
+    echo ${char_list[index]}
+}
+
 #turns string of rgb values in form "25,25,25" to array of 3 numbers
 get_rgb(){
     rgbs=()
@@ -81,15 +105,14 @@ print_image(){
     y_dim=$2
     x_dim_print=$3
     y_dim_print=$4
+    background=$5
     Arr=()
     #Each row is x_dim_print long & Each column is y_dim_print long
     for (( i=0; i<$x_dim; i++ )); do
         for (( j=0; j<$y_dim; j++ )); do
             result=`magick convert images.png -format "%[fx:int(255*p{$j,$i}.r)],%[fx:int(255*p{$j,$i}.g)],%[fx:int(255*p{$j,$i}.b)]" info:-`
             Arr+=($result)
-            #echo -n "$result;" >> temp_arr_file.txt
         done
-        #echo "" >> temp_arr_file.txt
     done
 
     #printing - chunks pixels 
