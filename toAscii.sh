@@ -34,7 +34,7 @@ check_image() {
             #echo $file_type
         done
         if [[ count -eq 0 ]]; then
-            echo "file type not supported" >&2
+            echo "file type is not supported" >&2
         fi
     else
         echo "List of supported files can not be found, so your file can not be verified. Would you like to continue? [y/n]:"
@@ -59,14 +59,14 @@ get_dimensions() {
     #removing 
     echo ${result% *}
 }
-
 #generates characer for chunk
 get_char(){
     avg_r=$1
     avg_b=$2
     avg_g=$3
 
-    char_list=("@" "%" "#" "&" "=" "+" "-" ":" "," "." " ")
+    char_list=("@" "%" "#" "&" "=" "+" "-" ":" "," ".")
+
     incr_length=$((3*255/${#char_list[@]}))
     
     #choose characters solely based on total screen area they occupy
@@ -74,65 +74,89 @@ get_char(){
     magnitude=$(($avg_r+$avg_b+$avg_g))
 
     if [[ $4 -eq 1 ]]; then
-        # background is dark, so we emphasize higher magnitudes, or closer to light - (255,255,255)
-        dist=$(($magnitude))
-    else
         # background is light, so we emphasize lower magnitudes, or closer to dark - (0,0,0)
-        dist=$((3*255-$magnitude))
+        dist=$((magnitude))
+    else
+        # background is dark, so we emphasize higher magnitudes, or closer to light - (255,255,255)
+        dist=$((3*255-magnitude))
     fi
     index=$((dist/incr_length))
-    echo ${char_list[index]}
-}
-
-#turns string of rgb values in form "25,25,25" to array of 3 numbers
-get_rgb(){
-    rgbs=()
-    str=$@
-
-    first=${str%%,*}
-    #cut out 1st and 3rd elements
-    second=${str:$((${#first}+1)):${#str}}; second=${second%%,*}
-    third=${str##*,}
-    rgbs+=($first)
-    rgbs+=($second)
-    rgbs+=($third)
-    echo ${rgbs[@]}
+    if [[ $index > 0 ]]; then
+        index=$((index-1))
+    fi
+    #echo $index >&2
+    #echo $1 $2 $3 $incr_length >&2
+    echo "${char_list[index]} "
 }
 
 print_image(){
-    #convert image to array
-    x_dim=$1
-    y_dim=$2
-    x_dim_print=$3
-    y_dim_print=$4
-    background=$5
-    Arr=()
-    #Each row is x_dim_print long & Each column is y_dim_print long
-    for (( i=0; i<$x_dim; i++ )); do
-        for (( j=0; j<$y_dim; j++ )); do
-            result=`magick convert images.png -format "%[fx:int(255*p{$j,$i}.r)],%[fx:int(255*p{$j,$i}.g)],%[fx:int(255*p{$j,$i}.b)]" info:-`
-            Arr+=($result)
-        done
-    done
+    image=$1
+    x_dim=$2
+    y_dim=$3
+    chunk_x=$4
+    chunk_y=$5
+    background=$6
+    output_type=$7
 
-    #printing - chunks pixels 
-    chunk_x=$x_dim
-    chunk_y=$y_dim
-    echo ${!Arr[@]}
+    x_pix_per_chunk=$(($x_dim / $chunk_x))
+    y_pix_per_chunk=$(($y_dim / $chunk_y))
+
+    for (( ch_y=0; ch_y<chunk_y; ch_y++ )); do
+        #accumulators for chunks
+        #bounds for chunk itteration 
+        init_y=$(($ch_y*$y_pix_per_chunk))
+        y_max=$(($init_y+$y_pix_per_chunk))
+
+        #stores each line of characters
+        line=()
+        for (( ch_x=0; ch_x<chunk_x; ch_x++ )) do
+            init_x=$(($ch_x*$x_pix_per_chunk))
+            x_max=$(($init_x+$x_pix_per_chunk))
+            n=0
+            r_total=0; g_total=0; b_total=0
+        
+            #itterate through pixels chunks  
+            for (( y=$init_y; y<$y_max; y++)); do
+                for (( x=$init_x; x<$x_max; x++)) do
+                    result=`magick convert $image -format "%[fx:int(255*p{$x,$y}.r)],%[fx:int(255*p{$x,$y}.g)],%[fx:int(255*p{$x,$y}.b)]" info:-`
+                    #parse rgb values from output
+                    r=${result%%,*}
+                    g=${result:$((${#r}+1)):${#result}}; g=${g%%,*}
+                    b=${result##*,}
+                    
+                    #adding to accumulators
+                    n=$(($n+1))
+                    r_total=$(($r_total+$r)); g_total=$(($g_total+$g)); b_total=$(($b_total+$b))
+                done
+            done
+            #calculate avgs and determine character
+            r_avg=$(($r_total/$n)); b_avg=$(($b_total/$n)); g_avg=$(($g_total/$n))
+            line+=$(get_char $r_avg $b_avg $g_avg $background)
+            #echo -n $char >> debug.txt
+            #echo $n $r_total >&2
+        done
+        #create new row
+        echo -n "|" 
+        echo -n ${line[@]}
+        echo -n "|" 
+        echo "" 
+    done
 }
 
-#Paramater order: [file_name] -specify_dimensions [x_length] [y_length] -background [dark/white]
-#parameters: 
-# defaults: to_x; to_y calculated 
-#Defaults 
-image=$1
-#check_image $image
+#Paramater order: [file_name] -specify_dimensions [x_length] [y_length] -background [dark/white] -output_type [stdout or textfile]
+#Defaults: to_x; to_y auto-calculated; background: dark; output-type: textfile
 
+image=$1
+check_image $image
+
+dimensions=$(get_dimensions $image)
+#parsing output
+d1=${dimensions%%x*}
+d2=${dimensions##*x}
+
+print_image 
 #-----------------------------
 #Testing stuff
-#coords=()
-coords=$(get_rgb "2,658,256")
-echo ${coords[@]}
-#get_dimensions $
+
 #check if dimensions are > to_x & to_y
 #if true, 
