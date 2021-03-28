@@ -33,8 +33,8 @@ check_image() {
             #echo ${i%%/n}
             #echo $file_type
         done
-        if [[ count -eq 0 ]]; then
-            echo "file type is not supported" >&2
+        if [[ flag -eq 0 ]]; then
+            echo "file type not supported" >&2
         fi
     else
         echo "List of supported files can not be found, so your file can not be verified. Would you like to continue? [y/n]:"
@@ -98,20 +98,20 @@ print_image(){
     background=$6
     output_type=$7
 
-    x_pix_per_chunk=$(($x_dim / $chunk_x))
-    y_pix_per_chunk=$(($y_dim / $chunk_y))
+    x_pix_per_chunk=$((x_dim/chunk_x))
+    y_pix_per_chunk=$((y_dim/chunk_y))
 
     for (( ch_y=0; ch_y<chunk_y; ch_y++ )); do
         #accumulators for chunks
         #bounds for chunk itteration 
-        init_y=$(($ch_y*$y_pix_per_chunk))
-        y_max=$(($init_y+$y_pix_per_chunk))
+        init_y=$((ch_y*y_pix_per_chunk))
+        y_max=$((init_y+y_pix_per_chunk))
 
         #stores each line of characters
         line=()
         for (( ch_x=0; ch_x<chunk_x; ch_x++ )) do
-            init_x=$(($ch_x*$x_pix_per_chunk))
-            x_max=$(($init_x+$x_pix_per_chunk))
+            init_x=$((ch_x*x_pix_per_chunk))
+            x_max=$((init_x+x_pix_per_chunk))
             n=0
             r_total=0; g_total=0; b_total=0
         
@@ -125,7 +125,7 @@ print_image(){
                     b=${result##*,}
                     
                     #adding to accumulators
-                    n=$(($n+1))
+                    n=$((n+1))
                     r_total=$(($r_total+$r)); g_total=$(($g_total+$g)); b_total=$(($b_total+$b))
                 done
             done
@@ -143,7 +143,7 @@ print_image(){
     done
 }
 
-#Paramater order: [file_name] -specify_dimensions [x_length] [y_length] -background [dark/white] -output_type [stdout or textfile]
+#Paramater order: [file_name] -background [dark/white] -specify_dimensions [x_length] [y_length] -output_type [stdout or textfile]
 #Defaults: to_x; to_y auto-calculated; background: dark; output-type: textfile
 
 image=$1
@@ -154,7 +154,20 @@ dimensions=$(get_dimensions $image)
 d1=${dimensions%%x*}
 d2=${dimensions##*x}
 
-print_image 
+if [[ -z $3 ]]; then
+    d1_new=$(($d1/4))
+else 
+    d1_new=$3
+fi
+
+if [[ -z $4 ]]; then 
+    d2_new=$(($d1/4))
+else 
+    d2_new=$4
+fi
+
+echo $image $d1 $d2 $d1_new $d2_new
+print_image $image $d1 $d2 $d1_new $d2_new $2
 #-----------------------------
 #Testing stuff
 
