@@ -18,14 +18,11 @@ check_image() {
     if [[ -e supportedList.txt && -r supportedList.txt ]]; then
         #loading list
         file_extn_list=(`cat "supportedList.txt"`)
-        #echo ${file_extn_list[@]}
         
         #check if file extension is part of supported list
         flag=0
         file_type=${image_file##*.}; file_type=${file_type,,}
-        #echo $file_type
 
-        #FIX HERE!!
         for i in ${file_extn_list[@]}; do
             if [[ $i =~ $file_type ]]; then
                 flag=1
@@ -58,18 +55,19 @@ get_dimensions() {
 
     echo ${result%%*+}
 }
-#generates character for chunk
+
+#generates character for a chunk
 get_char(){
     avg_r=$1
     avg_b=$2
     avg_g=$3
 
+    #characters range from most to least screen area occupied
     char_list=("@" "%" "#" "&" "=" "+" "-" ":" "," ".")
 
     incr_length=$((3*255/${#char_list[@]}))
     
-    #choose characters solely based on total screen area they occupy
-    #IDEA: try non-linear scaling for magnitude
+    #choose characters based on rgb values
     magnitude=$(($avg_r+$avg_b+$avg_g))
 
     if [[ $4 -eq 1 ]]; then
@@ -79,31 +77,31 @@ get_char(){
         # background is dark, so we emphasize higher magnitudes, or closer to light - (255,255,255)
         dist=$((3*255-magnitude))
     fi
+    
     index=$((dist/incr_length))
     if [[ $index > 0 ]]; then
         index=$((index-1))
     fi
-    #echo $index >&2
-    #echo $1 $2 $3 $incr_length >&2
     echo "${char_list[index]} "
 }
 
 print_image(){
     image=$1
+
     #number of pixels in x,y directions
     x_dim=$2
     y_dim=$3
+
     #numbers of chunks in x,y directions
     chunk_x=$4
     chunk_y=$5
+
     background=$6
-    output_type=$7
 
     x_pix_per_chunk=$((x_dim/chunk_x))
     y_pix_per_chunk=$((y_dim/chunk_y))
 
     for (( ch_y=0; ch_y<chunk_y; ch_y++ )); do
-        #accumulators for chunks
         #bounds for chunk itteration 
         init_y=$((ch_y*y_pix_per_chunk))
         y_max=$((init_y+y_pix_per_chunk))
@@ -114,6 +112,7 @@ print_image(){
             init_x=$((ch_x*x_pix_per_chunk))
             x_max=$((init_x+x_pix_per_chunk))
 
+            #accumulators for chunks
             n=0
             r_total=0; g_total=0; b_total=0
         
@@ -134,12 +133,10 @@ print_image(){
             #calculate avgs and determine character
             r_avg=$(($r_total/$n)); b_avg=$(($b_total/$n)); g_avg=$(($g_total/$n))
             line+=$(get_char $r_avg $b_avg $g_avg $background)
-            #echo -n $char >> debug.txt
-            #echo $n $r_total >&2
         done
         #create new row
         echo -n "|" 
-        echo -n "${line[@]} "
+        echo -n ${line[@]}
         echo -n "|" 
         echo "" 
     done
@@ -156,16 +153,13 @@ dimensions=$(get_dimensions $image)
 d1=${dimensions%%x*}
 d2=${dimensions##*x}
 
-area=$((d1*d2))
+
 #if too big, we resize the image so it will process faster
+area=$((d1*d2))
 if [[ $area > 2500 ]]; then
-    if [[ $d1 > 50 && $d2 > 50 ]];then 
-        `magick $image -resize 50x50 temp_image.png`
-    elif [[ $d1 > 50 ]]; then
-        `magick $image -resize 50x$d2 temp_image.png`
-    else 
-        `magick $image -resize ${d1}x50 temp_image.png`
-    fi
+    `magick $image -resize 50x50 temp_image.png`
+    d1=50
+    d2=50
     image="temp_image.png"
 fi
 
@@ -175,7 +169,7 @@ else
     d1_new=$2
 fi
 
-if [[ -z $3 ]]; then 
+if [[ -z $3 ]]; then
     d2_new=$(($d1/4))
 else 
     d2_new=$3
