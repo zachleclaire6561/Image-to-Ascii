@@ -123,3 +123,8 @@ print_image(){
 #print_image2 images1.png 50 50 25 25 1
 #get_char $1 $2 $3 1
 
+#`cp images1.png temp_file.png`
+d1=10
+d2=10
+echo $((d1*d2))
+#rm temp_file.png
