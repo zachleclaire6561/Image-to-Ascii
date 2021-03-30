@@ -35,6 +35,12 @@ check_image() {
         done
         if [[ flag -eq 0 ]]; then
             echo "file type not supported" >&2
+            echo "Would you like to continue? [y/n]:"
+            read ans
+            ans=${ans,,}
+            if [[ $ans == 'n' ]]; then
+                exit
+            fi
         fi
     else
         echo "List of supported files can not be found, so your file can not be verified. Would you like to continue? [y/n]:"
@@ -48,18 +54,11 @@ check_image() {
 
 get_dimensions() {
     image=$1
-    result=`magick identify $image`
-    
-    #result is in form of [file name] [file type] [dimensions]. 
-    #File type is max 4 char & dimensions max 4-4, totalling 13 chars max.
-    lower=$((${#image}+4))
-    upper=13
-    result=${result:lower:upper}
+    result=$(magick convert $image -format "%g" info:-)
 
-    #removing 
-    echo ${result% *}
+    echo ${result%%*+}
 }
-#generates characer for chunk
+#generates character for chunk
 get_char(){
     avg_r=$1
     avg_b=$2
@@ -91,8 +90,10 @@ get_char(){
 
 print_image(){
     image=$1
+    #number of pixels in x,y directions
     x_dim=$2
     y_dim=$3
+    #numbers of chunks in x,y directions
     chunk_x=$4
     chunk_y=$5
     background=$6
@@ -106,12 +107,13 @@ print_image(){
         #bounds for chunk itteration 
         init_y=$((ch_y*y_pix_per_chunk))
         y_max=$((init_y+y_pix_per_chunk))
-
+        
         #stores each line of characters
         line=()
         for (( ch_x=0; ch_x<chunk_x; ch_x++ )) do
             init_x=$((ch_x*x_pix_per_chunk))
             x_max=$((init_x+x_pix_per_chunk))
+
             n=0
             r_total=0; g_total=0; b_total=0
         
@@ -137,13 +139,13 @@ print_image(){
         done
         #create new row
         echo -n "|" 
-        echo -n ${line[@]}
+        echo -n "${line[@]} "
         echo -n "|" 
         echo "" 
     done
 }
 
-#Paramater order: [file_name] -background [dark/white] -specify_dimensions [x_length] [y_length] -output_type [stdout or textfile]
+#Paramater order: [file_name] (optional) [x_length] [y_length]
 #Defaults: to_x; to_y auto-calculated; background: dark; output-type: textfile
 
 image=$1
@@ -154,22 +156,43 @@ dimensions=$(get_dimensions $image)
 d1=${dimensions%%x*}
 d2=${dimensions##*x}
 
-if [[ -z $3 ]]; then
+area=$((d1*d2))
+#if too big, we resize the image so it will process faster
+if [[ $area > 2500 ]]; then
+    if [[ $d1 > 50 && $d2 > 50 ]];then 
+        `magick $image -resize 50x50 temp_image.png`
+    elif [[ $d1 > 50 ]]; then
+        `magick $image -resize 50x$d2 temp_image.png`
+    else 
+        `magick $image -resize ${d1}x50 temp_image.png`
+    fi
+    image="temp_image.png"
+fi
+
+if [[ -z $2 ]]; then
     d1_new=$(($d1/4))
 else 
-    d1_new=$3
+    d1_new=$2
 fi
 
-if [[ -z $4 ]]; then 
+if [[ -z $3 ]]; then 
     d2_new=$(($d1/4))
 else 
-    d2_new=$4
+    d2_new=$3
 fi
 
-echo $image $d1 $d2 $d1_new $d2_new
-print_image $image $d1 $d2 $d1_new $d2_new $2
-#-----------------------------
-#Testing stuff
+echo "What is the background color? [Black:0, White:1]"
+read background
+if [[ ! $background == 1 ]]; then
+background=0
+fi
 
-#check if dimensions are > to_x & to_y
-#if true, 
+echo "Output format? [Stdout:0, text file: 1]"
+read ans
+if [[ $ans == 0 ]]; then
+    print_image $image $d1 $d2 $d1_new $d2_new $background
+else
+    echo "file name?"
+    read file_name
+    print_image $image $d1 $d2 $d1_new $d2_new $background >> $file_name
+fi
