@@ -1,12 +1,13 @@
 # Image File To Ascii Art
 
+CSDS 297 Project #1
 This bash script allows you to convert an image into ascii art
 
 ### Dependencies:
 Image Magick (Download here: https://imagemagick.org/script/download.php)
 
 ### Usage:
-The script has 3-4 primary parameter along with 2 option ones
+The script has 3-4 primary parameters along with 2 optional ones
 1. Image file name (required)
 2. Dimensions of Ascii Art: X by Y (optional)
 3. Background color (black or white)
