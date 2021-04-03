@@ -6,12 +6,15 @@ check_image() {
 
     if [[ -z $image_file ]]; then
         echo "Please supply a valid file name" >&2
+        exit
     fi
 
     if [[ ! -e $image_file ]]; then 
         echo "file does not exist" >&2
+        exit
     elif [[ ! -r $image_file || ! -f $image_file ]]; then 
         echo "file is not readable" >&2
+        exit
     fi
 
     #get list of supported file extensions (ie. png)
@@ -52,8 +55,8 @@ check_image() {
 get_dimensions() {
     image=$1
     result=$(magick convert $image -format "%g" info:-)
-
-    echo ${result%%*+}
+    result=${result%%+*}
+    echo $result
 }
 
 #generates character for a chunk
@@ -153,14 +156,20 @@ dimensions=$(get_dimensions $image)
 d1=${dimensions%%x*}
 d2=${dimensions##*x}
 
-
+#get_dimensions $image
 #if too big, we resize the image so it will process faster
 area=$((d1*d2))
-if [[ $area > 2500 ]]; then
+area=$((area-2500))
+if [[ $area > 0 ]]; then
+    echo "resizing image..."
     `magick $image -resize 50x50 temp_image.png`
-    d1=50
-    d2=50
     image="temp_image.png"
+    
+    #get dimensions again
+    dimensions=$(get_dimensions $image)
+    #parsing output
+    d1=${dimensions%%x*}
+    d2=${dimensions##*x}
 fi
 
 if [[ -z $2 ]]; then
@@ -173,6 +182,15 @@ if [[ -z $3 ]]; then
     d2_new=$(($d1/4))
 else 
     d2_new=$3
+fi
+
+#Makes sure #chunks <= #pixels 
+if [[ $d1_new > $d1 ]]; then
+    d1_new=$d1
+fi
+
+if [[ $d2_new > $d2 ]]; then
+    d2_new=$d2
 fi
 
 echo "What is the background color? [Black:0, White:1]"
